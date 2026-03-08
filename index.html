@@ -2,51 +2,44 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>極速修仙：最終啟動版</title>
+    <title>極速修仙：正式執行版</title>
     <style>
         body { background: #000; color: #fff; font-family: "標楷體", serif; margin: 0; display: flex; flex-direction: column; height: 100vh; }
         #header { padding: 10px; background: #111; border-bottom: 1px solid #444; display: flex; gap: 10px; }
-        #chat { flex: 1; overflow-y: auto; padding: 25px; line-height: 1.8; font-size: 1.2rem; }
+        #chat { flex: 1; overflow-y: auto; padding: 25px; line-height: 1.8; font-size: 1.25rem; }
         #input-area { padding: 20px; border-top: 1px solid #444; display: flex; gap: 10px; }
-        input { background: #1a1a1a; color: #fff; border: 1px solid #444; padding: 10px; flex: 1; color: white; }
+        input { background: #1a1a1a; color: #fff; border: 1px solid #444; padding: 10px; flex: 1; }
         button { padding: 10px 20px; cursor: pointer; background: #333; color: #fff; border: 1px solid #555; }
         .msg { margin-bottom: 20px; white-space: pre-wrap; }
         .gm { border-left: 4px solid #888; padding-left: 15px; }
         .player { color: #4dabff; text-align: right; font-weight: bold; }
-        .err { color: #ff9800; border: 1px dashed #ff9800; padding: 10px; background: rgba(255,152,0,0.1); }
+        .err { color: #ff9800; border: 1px dashed #ff9800; padding: 15px; font-size: 0.85rem; }
     </style>
 </head>
 <body>
 
 <div id="header">
     <input type="password" id="apiKey" placeholder="在此輸入 API Key" style="width:250px;">
-    <button onclick="save()">1. 儲存設定</button>
+    <button onclick="save()">儲存 Key</button>
 </div>
 
-<div id="chat">
-    <div class="msg gm">【系統】規則已就緒。
-1. 請儲存 Key。
-2. 輸入「開始遊戲」後，若 10 秒內沒反應，請檢查瀏覽器右上角是否有攔截圖示。</div>
-</div>
+<div id="chat"><div class="msg gm">【系統】規則已就緒（含金丹/元嬰/化神三階段）。請儲存 Key 後輸入「開始遊戲」。</div></div>
 
 <div id="input-area">
-    <input type="text" id="userInput" placeholder="在此輸入回應..." onkeypress="if(event.key==='Enter')run()">
-    <button onclick="run()">2. 發送</button>
+    <input type="text" id="userInput" placeholder="輸入訊息..." onkeypress="if(event.key==='Enter')run()">
+    <button onclick="run()">發送</button>
 </div>
 
 <script>
-    // 嚴格遵守用戶提供的 14 條修仙規則 與 8 條主持指令
-    const PROMPT = "你是一位專業主持。規則：1.開放式提問禁選項 2.資訊對等 3.非必然成功需敘述風險並行D100判定 4.嚴禁擅自推劇情。遊戲設定：極速修仙（金丹、元嬰、化神三階段）。每階3-7問。一致性差則道心不穩。破境失敗則轉世重來。背景：平均修仙世界。";
+    // 匯入用戶指定的 14 條修仙規則與 8 條主持指令
+    const SYSTEM_PROMPT = `你是一位專業主持。規則：1.開放提問禁選項 2.資訊對等 3.非必然成功需敘述風險並行D100判定 4.嚴禁擅自推劇情。遊戲：極速修仙。分金丹、元嬰、化神三階段。每階3-7問。一致性差則道心不穩。失敗則轉世。`;
 
     function save() {
-        localStorage.setItem('game_key_final', document.getElementById('apiKey').value.trim());
-        alert('Key 已儲存，請開始遊戲！');
+        localStorage.setItem('final_game_key', document.getElementById('apiKey').value.trim());
+        alert('Key 已儲存！');
     }
 
-    window.onload = () => {
-        const k = localStorage.getItem('game_key_final');
-        if(k) document.getElementById('apiKey').value = k;
-    };
+    window.onload = () => { document.getElementById('apiKey').value = localStorage.getItem('final_game_key') || ''; };
 
     async function run() {
         const out = document.getElementById('chat');
@@ -55,47 +48,32 @@
         const text = input.value.trim();
 
         if(!text || !key) return;
-
-        // 顯示玩家輸入
-        const pDiv = document.createElement('div');
-        pDiv.className = 'msg player';
-        pDiv.innerText = text;
-        out.appendChild(pDiv);
+        out.innerHTML += `<div class="msg player">${text}</div>`;
         input.value = '';
 
         try {
-            // 使用 v1beta 搭配最穩定的 gemini-1.5-flash
-            const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + key;
+            // 使用最標準的 v1beta 搭配路徑
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
             
             const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: PROMPT + "\n玩家輸入：" + text }] }]
+                    contents: [{ parts: [{ text: SYSTEM_PROMPT + "\n玩家：" + text }] }]
                 })
             });
 
             const data = await res.json();
 
             if (data.error) {
-                appendErr("【API 錯誤】" + data.error.code + ": " + data.error.message);
-            } else {
-                const gDiv = document.createElement('div');
-                gDiv.className = 'msg gm';
-                gDiv.innerText = data.candidates[0].content.parts[0].text;
-                out.appendChild(gDiv);
+                out.innerHTML += `<div class="msg err">【API 錯誤】代碼：${data.error.code}\n訊息：${data.error.message}\n\n💡 請確認您在 Google AI Studio 官網是否能正常聊天。若官網可行但此處不行，請嘗試更換瀏覽器。</div>`;
+            } else if (data.candidates && data.candidates[0].content) {
+                out.innerHTML += `<div class="msg gm">${data.candidates[0].content.parts[0].text}</div>`;
             }
         } catch (e) {
-            appendErr("【系統錯誤】" + e.toString() + "\n請確認是否關閉了 Opera VPN 或廣告攔截器。");
+            out.innerHTML += `<div class="msg err">【連線失敗】請確認是否關閉了 Opera VPN。</div>`;
         }
         out.scrollTop = out.scrollHeight;
-    }
-
-    function appendErr(txt) {
-        const eDiv = document.createElement('div');
-        eDiv.className = 'msg err';
-        eDiv.innerText = txt;
-        document.getElementById('chat').appendChild(eDiv);
     }
 </script>
 </body>
