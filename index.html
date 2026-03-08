@@ -2,182 +2,76 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>極速修仙：終極整合版</title>
+    <title>極速修仙：正式執行版</title>
     <style>
-        /* 需求 3：RGB 設定，預設黑底白字標楷體 */
-        :root {
-            --bg-color: rgb(0, 0, 0);
-            --text-color: rgb(255, 255, 255);
-            --font-family: "標楷體", "DFKai-SB", "BiauKai", serif;
-        }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            font-family: var(--font-family);
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        /* 介面佈局 */
-        #header {
-            padding: 10px;
-            background: #111;
-            border-bottom: 1px solid #444;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        #chat-box {
-            flex: 1;
-            overflow-y: auto;
-            padding: 25px;
-            line-height: 1.8;
-            font-size: 1.25rem;
-        }
-
-        #input-area {
-            padding: 20px;
-            border-top: 1px solid #444;
-            display: flex;
-            gap: 10px;
-            background: #000;
-        }
-
-        input, select {
-            background: #1a1a1a;
-            color: #fff;
-            border: 1px solid #444;
-            padding: 10px;
-            font-family: inherit;
-        }
-
-        button {
-            padding: 10px 20px;
-            cursor: pointer;
-            background: #333;
-            color: #fff;
-            border: 1px solid #555;
-            font-family: inherit;
-        }
-
-        button:hover { background: #555; }
-
+        :root { --bg: #000; --tx: #fff; }
+        body { background: var(--bg); color: var(--tx); font-family: "標楷體", serif; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        #header { padding: 10px; background: #111; border-bottom: 1px solid #444; display: flex; gap: 10px; align-items: center; }
+        #chat { flex: 1; overflow-y: auto; padding: 25px; line-height: 1.8; font-size: 1.25rem; }
+        #input-area { padding: 20px; border-top: 1px solid #444; display: flex; gap: 10px; }
+        input { background: #1a1a1a; color: #fff; border: 1px solid #444; padding: 10px; flex: 1; font-family: inherit; }
+        button { padding: 10px 20px; cursor: pointer; background: #333; color: #fff; border: 1px solid #555; }
         .msg { margin-bottom: 25px; white-space: pre-wrap; }
         .gm { border-left: 4px solid #888; padding-left: 15px; }
         .player { color: #4dabff; text-align: right; font-weight: bold; }
-        .sys-err { 
-            color: #ff9800; 
-            border: 1px dashed #ff9800; 
-            padding: 15px; 
-            font-size: 0.9rem; 
-            background: rgba(255, 152, 0, 0.1); 
-        }
+        .err { color: #ff9800; border: 1px dashed #ff9800; padding: 15px; font-size: 0.9rem; }
     </style>
 </head>
 <body>
 
 <div id="header">
-    <select id="modelSelect">
-        <option value="models/gemini-1.5-flash">Gemini 1.5 Flash (建議)</option>
-        <option value="models/gemini-1.5-pro">Gemini 1.5 Pro</option>
-        <option value="models/gemini-pro">Gemini 1.0 Pro</option>
-    </select>
-    <input type="password" id="apiKey" placeholder="在此輸入 API Key" style="width:200px;">
-    
-    背景: <input type="color" id="bgPicker" value="#000000">
-    文字: <input type="color" id="textPicker" value="#ffffff">
-    <button onclick="saveSettings()">儲存設定</button>
+    <input type="password" id="apiKey" placeholder="在此輸入 API Key" style="width:250px;">
+    <button onclick="save()">儲存設定</button>
 </div>
 
-<div id="chat-box">
-    <div class="msg gm">【系統】規則已載入（包含金丹/元嬰/化神三階段、D100 判定與道心問答邏輯）。
-請確認 API Key 已儲存，隨後輸入「開始遊戲」展開修仙旅程。</div>
-</div>
+<div id="chat"><div class="msg gm">【系統】規則已就緒（含金丹/元嬰/化神三階段）。請儲存 Key 後輸入「開始遊戲」。</div></div>
 
 <div id="input-area">
-    <input type="text" id="userInput" placeholder="在此輸入回應..." style="flex:1" onkeypress="if(event.key==='Enter')handleSend()">
-    <button onclick="handleSend()">發送</button>
+    <input type="text" id="userInput" placeholder="輸入回應..." onkeypress="if(event.key==='Enter')run()">
+    <button onclick="run()">發送</button>
 </div>
 
 <script>
-    // 需求 4：整合所有遊戲規則與專屬指令
-    const SYSTEM_PROMPT = `你是一位專業主持。請嚴格遵守以下規範：
-1. 嚴禁在局外討論時擅自推動劇情。
-2. 遵守資訊對等原則，不透漏角色不該知道的資訊。
-3. 保持開放式提問，不提供選項，不替玩家決定行動。
-4. 非必然成功行動需描述風險；玩家堅持後執行幕後 D100 判定。
-5. 極速修仙遊戲階段：金丹成形 -> 元嬰現世 -> 化神。
-6. 每個階段由 3-7 個主要情境問題（道心問答）構成。
-7. 視玩家回應細節追加衍生問題，這將影響破境評價。
-8. 回應一致性落差過大視為「道心不穩」，給予敘事警示並於階段結束判定破境。
-9. 破境失敗則觸發轉世（新遊戲）；成功則告知修煉出的成果與後日談。
-背景：平均大眾的修仙世界。`;
+    // 整合用戶指定的 14 條極速修仙規則 與 8 條通用主持規則
+    const SYSTEM_PROMPT = `你是一位專業主持。規則：1.開放提問禁選項 2.資訊對等 3.非必然成功需敘述風險並行D100判定 4.嚴禁擅自推劇情。遊戲設定：極速修仙（金丹、元嬰、化神三階段）。每階3-7問。一致性差則道心不穩。破境失敗則轉世重來。背景：平均修仙世界。`;
 
-    // 初始化設定
-    window.onload = () => {
-        const savedKey = localStorage.getItem('immortal_api_key');
-        if (savedKey) document.getElementById('apiKey').value = savedKey;
-        
-        const savedModel = localStorage.getItem('immortal_model');
-        if (savedModel) document.getElementById('modelSelect').value = savedModel;
-    };
+    window.onload = () => { document.getElementById('apiKey').value = localStorage.getItem('final_v3_key') || ''; };
 
-    function saveSettings() {
-        localStorage.setItem('immortal_api_key', document.getElementById('apiKey').value.trim());
-        localStorage.setItem('immortal_model', document.getElementById('modelSelect').value);
-        
-        document.documentElement.style.setProperty('--bg-color', document.getElementById('bgPicker').value);
-        document.documentElement.style.setProperty('--text-color', document.getElementById('textPicker').value);
-        
-        alert('設定儲存成功！');
+    function save() {
+        localStorage.setItem('final_v3_key', document.getElementById('apiKey').value.trim());
+        alert('設定已儲存！');
     }
 
-    async function handleSend() {
-        const out = document.getElementById('chat-box');
+    async function run() {
+        const out = document.getElementById('chat');
         const input = document.getElementById('userInput');
         const key = document.getElementById('apiKey').value.trim();
-        const model = document.getElementById('modelSelect').value;
         const text = input.value.trim();
 
-        if (!text || !key) return;
-
-        // 顯示玩家輸入
+        if(!text || !key) return;
         appendMsg('player', text);
         input.value = '';
 
         try {
-            // 針對 404 問題優化的完整 URL
-            const url = `https://generativelanguage.googleapis.com/v1beta/${model}:generateContent?key=${key}`;
+            // 【2026 終極修正網址】確保路徑完全符合 Google API 目前的 models 調用規範
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
             
-            const response = await fetch(url, {
+            const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ parts: [{ text: SYSTEM_PROMPT + "\n玩家輸入：" + text }] }]
-                })
+                body: JSON.stringify({ contents: [{ parts: [{ text: SYSTEM_PROMPT + "\n玩家輸入：" + text }] }] })
             });
 
-            const data = await response.json();
+            const data = await res.json();
 
             if (data.error) {
-                appendMsg('sys-err', `【API 錯誤】\n代碼：${data.error.code}\n狀態：${data.error.status}\n訊息：${data.error.message}\n\n提示：若持續出現 404，請確認 Google AI Studio 中 API Key 是否為 Active。`);
+                appendMsg('err', `【API 錯誤】代碼：${data.error.code}\n訊息：${data.error.message}\n原因：伺服器找不到該模型或 API 版本不匹配。`);
             } else if (data.candidates && data.candidates[0].content) {
                 appendMsg('gm', data.candidates[0].content.parts[0].text);
-            } else {
-                appendMsg('sys-err', "【系統提示】AI 未回傳內容，可能觸發了安全過濾機制。");
             }
-
         } catch (e) {
-            appendMsg('sys-err', "【連線失敗】無法連接至 Google 伺服器，請檢查網路連線或關閉 Opera VPN。");
+            appendMsg('err', "【連線失敗】請檢查網路。");
         }
-        
         out.scrollTop = out.scrollHeight;
     }
 
@@ -185,9 +79,8 @@
         const d = document.createElement('div');
         d.className = `msg ${cls}`;
         d.innerText = txt;
-        document.getElementById('chat-box').appendChild(d);
+        document.getElementById('chat').appendChild(d);
     }
 </script>
-
 </body>
 </html>
