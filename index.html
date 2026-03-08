@@ -2,18 +2,18 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>極速修仙：正式執行版</title>
+    <title>極速修仙：終極相容版</title>
     <style>
         body { background: #000; color: #fff; font-family: "標楷體", serif; margin: 0; display: flex; flex-direction: column; height: 100vh; }
         #header { padding: 10px; background: #111; border-bottom: 1px solid #444; display: flex; gap: 10px; }
-        #chat { flex: 1; overflow-y: auto; padding: 25px; line-height: 1.8; font-size: 1.25rem; }
+        #chat { flex: 1; overflow-y: auto; padding: 25px; line-height: 1.8; font-size: 1.2rem; }
         #input-area { padding: 20px; border-top: 1px solid #444; display: flex; gap: 10px; }
         input { background: #1a1a1a; color: #fff; border: 1px solid #444; padding: 10px; flex: 1; color: white; }
         button { padding: 10px 20px; cursor: pointer; background: #333; color: #fff; border: 1px solid #555; }
-        .msg { margin-bottom: 25px; white-space: pre-wrap; }
+        .msg { margin-bottom: 20px; white-space: pre-wrap; }
         .gm { border-left: 4px solid #888; padding-left: 15px; }
         .player { color: #4dabff; text-align: right; font-weight: bold; }
-        .err { color: #ff9800; border: 1px dashed #ff9800; padding: 15px; font-size: 0.9rem; }
+        .err { color: #ff9800; border: 1px dashed #ff9800; padding: 10px; font-size: 0.85rem; }
     </style>
 </head>
 <body>
@@ -23,8 +23,8 @@
     <button onclick="save()">儲存設定</button>
 </div>
 
-<div id="chat"><div class="msg gm">【系統】偵測到 Gemini 3 權限，規則已同步（含金丹/元嬰/化神三階段）。
-請儲存 Key 後輸入「開始遊戲」。</div></div>
+<div id="chat"><div class="msg gm">【系統】正在準備連結 AI 服務...
+請儲存 Key 後輸入「開始遊戲」，系統將自動尋找您帳號可用的模型。</div></div>
 
 <div id="input-area">
     <input type="text" id="userInput" placeholder="在此輸入..." onkeypress="if(event.key==='Enter')run()">
@@ -32,20 +32,15 @@
 </div>
 
 <script>
-    // 嚴格整合用戶指定的修仙與冒險規則
-    const PROMPT = `你是一位專業主持。規則：
-1. 開放提問禁選項，資訊對等。
-2. 非必然成功需敘述風險並行 D100 判定。
-3. 遊戲：極速修仙（金丹、元嬰、化神三階段）。
-4. 每階 3-7 問。回應一致性差則道心不穩，失敗則轉世。
-背景：平均修仙世界。`;
-
-    window.onload = () => { document.getElementById('apiKey').value = localStorage.getItem('g3_final_key') || ''; };
+    // 匯入 14 條修仙規則
+    const PROMPT = "你是一位專業主持。規則：1.開放式提問禁選項 2.資訊對等 3.非必然成功需敘述風險並行D100判定 4.嚴禁擅自推劇情。遊戲：極速修仙。分金丹、元嬰、化神三階段。每階3-7問。一致性差則道心不穩。失敗則轉世。";
 
     function save() {
-        localStorage.setItem('g3_final_key', document.getElementById('apiKey').value.trim());
-        alert('設定已儲存！');
+        localStorage.setItem('final_detect_key', document.getElementById('apiKey').value.trim());
+        alert('Key 已儲存！');
     }
+
+    window.onload = () => { document.getElementById('apiKey').value = localStorage.getItem('final_detect_key') || ''; };
 
     async function run() {
         const out = document.getElementById('chat');
@@ -58,24 +53,32 @@
         input.value = '';
 
         try {
-            // 【終極修正】模型識別碼改為 gemini-3-flash
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${key}`;
+            // 第一步：自動獲取可用模型清單
+            const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${key}`;
+            const listRes = await fetch(listUrl);
+            const listData = await listRes.json();
+            
+            // 找出支援 generateContent 的第一個模型
+            const availableModel = listData.models.find(m => m.supportedGenerationMethods.includes('generateContent'));
+            
+            if (!availableModel) throw new Error("您的 Key 找不到任何支援對話的模型。");
+
+            // 第二步：使用自動找到的模型發送請求
+            const url = `https://generativelanguage.googleapis.com/v1beta/${availableModel.name}:generateContent?key=${key}`;
             
             const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: PROMPT + "\n玩家輸入：" + text }] }] })
+                body: JSON.stringify({ contents: [{ parts: [{ text: PROMPT + "\n玩家：" + text }] }] })
             });
 
             const data = await res.json();
+            if (data.error) throw new Error(data.error.message);
+            
+            appendMsg('gm', data.candidates[0].content.parts[0].text);
 
-            if (data.error) {
-                appendMsg('err', `【API 錯誤】${data.error.code}: ${data.error.message}\n提示：請確認專案已啟用且 Key 正確。`);
-            } else if (data.candidates && data.candidates[0].content) {
-                appendMsg('gm', data.candidates[0].content.parts[0].text);
-            }
         } catch (e) {
-            appendMsg('err', "【連線失敗】請確認網路環境或嘗試無痕模式。");
+            appendMsg('err', "【連線失敗】" + e.message + "\n請確認 API Key 是否正確且已啟用。");
         }
         out.scrollTop = out.scrollHeight;
     }
