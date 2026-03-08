@@ -2,45 +2,39 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>極速修仙：正式執行版</title>
+    <title>極速修仙：正式啟動版</title>
     <style>
-        :root { --bg: #000; --tx: #fff; }
-        body { background: var(--bg); color: var(--tx); font-family: "標楷體", serif; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        #header { padding: 10px; background: #111; border-bottom: 1px solid #444; display: flex; gap: 10px; align-items: center; }
+        body { background: #000; color: #fff; font-family: "標楷體", serif; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        #header { padding: 10px; background: #111; border-bottom: 1px solid #444; display: flex; gap: 10px; }
         #chat { flex: 1; overflow-y: auto; padding: 25px; line-height: 1.8; font-size: 1.25rem; }
         #input-area { padding: 20px; border-top: 1px solid #444; display: flex; gap: 10px; }
-        input { background: #1a1a1a; color: #fff; border: 1px solid #444; padding: 10px; flex: 1; font-family: inherit; }
+        input { background: #1a1a1a; color: #fff; border: 1px solid #444; padding: 10px; flex: 1; }
         button { padding: 10px 20px; cursor: pointer; background: #333; color: #fff; border: 1px solid #555; }
-        .msg { margin-bottom: 25px; white-space: pre-wrap; }
+        .msg { margin-bottom: 20px; white-space: pre-wrap; }
         .gm { border-left: 4px solid #888; padding-left: 15px; }
         .player { color: #4dabff; text-align: right; font-weight: bold; }
-        .err { color: #ff9800; border: 1px dashed #ff9800; padding: 15px; font-size: 0.9rem; }
+        .err { color: #ff9800; border: 1px dashed #ff9800; padding: 10px; font-size: 0.85rem; }
     </style>
 </head>
 <body>
 
 <div id="header">
     <input type="password" id="apiKey" placeholder="在此輸入 API Key" style="width:250px;">
-    <button onclick="save()">儲存設定</button>
+    <button onclick="localStorage.setItem('game_key_v2026', document.getElementById('apiKey').value.trim()); alert('儲存成功！')">儲存 Key</button>
 </div>
 
-<div id="chat"><div class="msg gm">【系統】規則已就緒（含金丹/元嬰/化神三階段）。請儲存 Key 後輸入「開始遊戲」。</div></div>
+<div id="chat"><div class="msg gm">【系統】專案已啟用！規則已載入（三階段判定邏輯）。輸入「開始遊戲」啟動。</div></div>
 
 <div id="input-area">
-    <input type="text" id="userInput" placeholder="輸入回應..." onkeypress="if(event.key==='Enter')run()">
+    <input type="text" id="userInput" placeholder="輸入訊息..." onkeypress="if(event.key==='Enter')run()">
     <button onclick="run()">發送</button>
 </div>
 
 <script>
-    // 整合用戶指定的 14 條極速修仙規則 與 8 條通用主持規則
-    const SYSTEM_PROMPT = `你是一位專業主持。規則：1.開放提問禁選項 2.資訊對等 3.非必然成功需敘述風險並行D100判定 4.嚴禁擅自推劇情。遊戲設定：極速修仙（金丹、元嬰、化神三階段）。每階3-7問。一致性差則道心不穩。破境失敗則轉世重來。背景：平均修仙世界。`;
+    // 匯入你的修仙規則
+    const SYSTEM_PROMPT = `你是一位專業主持。規則：1.開放提問禁選項 2.資訊對等 3.非必然成功需敘述風險並行D100判定 4.嚴禁擅自推劇情。遊戲：極速修仙。分金丹、元嬰、化神三階段。每階3-7問。一致性差則道心不穩。失敗則轉世。`;
 
-    window.onload = () => { document.getElementById('apiKey').value = localStorage.getItem('final_v3_key') || ''; };
-
-    function save() {
-        localStorage.setItem('final_v3_key', document.getElementById('apiKey').value.trim());
-        alert('設定已儲存！');
-    }
+    window.onload = () => { document.getElementById('apiKey').value = localStorage.getItem('game_key_v2026') || ''; };
 
     async function run() {
         const out = document.getElementById('chat');
@@ -49,38 +43,21 @@
         const text = input.value.trim();
 
         if(!text || !key) return;
-        appendMsg('player', text);
+        out.innerHTML += `<div class="msg player">${text}</div>`;
         input.value = '';
 
         try {
-            // 【2026 終極修正網址】確保路徑完全符合 Google API 目前的 models 調用規範
+            // 【最後關鍵】針對已啟用專案，使用 v1beta 與 flash 模型的組合
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
             
             const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: SYSTEM_PROMPT + "\n玩家輸入：" + text }] }] })
+                body: JSON.stringify({ contents: [{ parts: [{ text: SYSTEM_PROMPT + "\n玩家：" + text }] }] })
             });
 
             const data = await res.json();
 
             if (data.error) {
-                appendMsg('err', `【API 錯誤】代碼：${data.error.code}\n訊息：${data.error.message}\n原因：伺服器找不到該模型或 API 版本不匹配。`);
-            } else if (data.candidates && data.candidates[0].content) {
-                appendMsg('gm', data.candidates[0].content.parts[0].text);
-            }
-        } catch (e) {
-            appendMsg('err', "【連線失敗】請檢查網路。");
-        }
-        out.scrollTop = out.scrollHeight;
-    }
-
-    function appendMsg(cls, txt) {
-        const d = document.createElement('div');
-        d.className = `msg ${cls}`;
-        d.innerText = txt;
-        document.getElementById('chat').appendChild(d);
-    }
-</script>
-</body>
-</html>
+                out.innerHTML += `<div class="msg err">【API 報錯】代碼：${data.error.code}\n訊息：${data.error.message}</div>`;
+            } else if (data.candidates
