@@ -75,7 +75,7 @@
 
 心念起時，造化自生。
 
-重塑肉身，請輸入：『轉生重啟』，此舉將會不可逆的清空前塵往事。
+重塑肉身，請輸入：『轉生重啟』。
 續接斷章，請輸入：『再續前塵』。</div>
     <div id="loading-indicator"></div>
 </div>
@@ -154,3 +154,119 @@
         let i = 0; loader.style.display = 'block';
         loadingInterval = setInterval(() => {
             loader.innerText = "【天機推演中 " + chars[i] + " 】";
+            i = (i + 1) % chars.length;
+        }, 150);
+        document.getElementById('send-btn').disabled = true;
+    }
+
+    function stopLoading() {
+        clearInterval(loadingInterval);
+        document.getElementById('loading-indicator').style.display = 'none';
+        document.getElementById('send-btn').disabled = false;
+        document.getElementById('userInput').focus();
+    }
+
+    window.onload = () => {
+        document.getElementById('apiKey').value = localStorage.getItem('game_key_univ') || '';
+        updateUI();
+    };
+
+    function updateUI() {
+        const root = document.documentElement;
+        root.style.setProperty('--bg', document.getElementById('cfg-bg').value);
+        root.style.setProperty('--sys', document.getElementById('cfg-sys').value);
+        root.style.setProperty('--ply', document.getElementById('cfg-ply').value);
+    }
+
+    function saveSettings() {
+        localStorage.setItem('game_key_univ', document.getElementById('apiKey').value.trim());
+        alert('設定已儲存。');
+    }
+
+    async function run() {
+        const out = document.getElementById('chat');
+        const input = document.getElementById('userInput');
+        const service = document.getElementById('service-type').value;
+        const key = document.getElementById('apiKey').value.trim();
+        let text = input.value.trim();
+
+        if(!text) return;
+        fullLog.push({ role: "user", text: text });
+
+        if (text === "轉生重啟") {
+            history = []; fullLog = []; // 徹底清空
+            appendMsg('player', text);
+            appendMsg('gm', "【系統】舊日因果已徹底斬斷。");
+            text = "開始遊戲"; 
+        } else if (text === "再續前塵") {
+            document.getElementById('fileLoader').click();
+            input.value = ''; return;
+        } else {
+            appendMsg('player', text);
+        }
+        
+        if(!key) { alert("請輸入 API Key"); return; }
+        input.value = ''; startLoading();
+
+        try {
+            // 去水精簡
+            let refinedText = text.replace(/^(我想想|好的|沒問題|我知道了|了解)[，。]*/, "").trim();
+            let reply = (service === 'gemini') ? await callGemini(key, refinedText) : await callOpenAI(key, refinedText);
+
+            if (reply) {
+                if(!["轉生重啟", "開始遊戲"].includes(text)) history.push({ role: "user", text: refinedText });
+                else history.push({ role: "user", text: "開始" });
+                
+                history.push({ role: "model", text: reply });
+                fullLog.push({ role: "model", text: reply });
+                appendMsg('gm', reply);
+            }
+        } catch (e) {
+            appendMsg('err', "【天機阻塞】" + e.message);
+        } finally {
+            stopLoading();
+        }
+        out.scrollTop = out.scrollHeight;
+    }
+
+    async function callGemini(key, text) {
+        const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+        const listData = await listRes.json();
+        const modelObj = listData.models.find(m => m.supportedGenerationMethods.includes('generateContent'));
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/${modelObj.name}:generateContent?key=${key}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [
+                    { role: "user", parts: [{ text: PROMPT }] },
+                    ...history.map(h => ({ role: h.role, parts: [{ text: h.text }] })),
+                    { role: "user", parts: [{ text: text }] }
+                ]
+            })
+        });
+        const data = await res.json();
+        if (!data.candidates || !data.candidates[0]) throw new Error("天機全無，請重整後再試");
+        return data.candidates[0].content.parts[0].text;
+    }
+
+    async function callOpenAI(key, text) {
+        const res = await fetch(`https://api.openai.com/v1/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+            body: JSON.stringify({
+                model: "gpt-4-turbo",
+                messages: [{ role: "system", content: PROMPT }, ...history.map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.text })), { role: "user", content: text }]
+            })
+        });
+        const data = await res.json();
+        return data.choices[0].message.content;
+    }
+
+    function appendMsg(cls, txt) {
+        const d = document.createElement('div');
+        d.className = `msg ${cls}`; d.innerText = txt;
+        document.getElementById('chat').insertBefore(d, document.getElementById('loading-indicator'));
+    }
+</script>
+</body>
+</html>
