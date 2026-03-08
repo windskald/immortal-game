@@ -2,38 +2,69 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>極速修仙：終極相容版</title>
+    <title>極速修仙：因果秒轉版</title>
     <style>
-        body { background: #000; color: #fff; font-family: "標楷體", serif; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        #header { padding: 10px; background: #111; border-bottom: 1px solid #444; display: flex; gap: 10px; }
-        #chat { flex: 1; overflow-y: auto; padding: 25px; line-height: 1.8; font-size: 1.2rem; }
+        :root { --bg: #000; --sys: #ccc; --ply: #fff; --fnt: "標楷體", "DFKai-SB", "BiauKai", serif; }
+        * { font-family: var(--fnt) !important; box-sizing: border-box; }
+        body { background: var(--bg); color: var(--sys); margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        #header { padding: 12px 20px; background: #1a1a1a; border-bottom: 1px solid #444; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
+        .setting-item { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; color: #aaa; }
+        #chat { flex: 1; overflow-y: auto; padding: 30px; line-height: 1.8; font-size: 1.3rem; }
         #input-area { padding: 20px; border-top: 1px solid #444; display: flex; gap: 10px; }
-        input { background: #1a1a1a; color: #fff; border: 1px solid #444; padding: 10px; flex: 1; color: white; }
-        button { padding: 10px 20px; cursor: pointer; background: #333; color: #fff; border: 1px solid #555; }
-        .msg { margin-bottom: 20px; white-space: pre-wrap; }
-        .gm { border-left: 4px solid #888; padding-left: 15px; }
-        .player { color: #4dabff; text-align: right; font-weight: bold; }
-        .err { color: #ff9800; border: 1px dashed #ff9800; padding: 10px; font-size: 0.85rem; }
+        input, select, button { background: #222; color: #fff; border: 1px solid #555; padding: 6px 10px; border-radius: 4px; }
+        button { cursor: pointer; background: #444; transition: 0.2s; }
+        button:hover:not(:disabled) { background: #666; }
+        .help-link { color: #4dabff; text-decoration: none; font-size: 0.85rem; }
+        .msg { margin-bottom: 30px; white-space: pre-wrap; }
+        .gm { border-left: 5px solid #555; padding-left: 20px; color: var(--sys); }
+        .player { color: var(--ply); text-align: right; font-weight: bold; }
+        .err { color: #ff9800; border: 1px dashed #ff9800; padding: 15px; background: rgba(255,152,0,0.1); }
+        .scroll-btn { background: #3d2b1f; color: #d4a373; border: 1px solid #d4a373; font-weight: bold; }
+        #loading-indicator { color: #888; font-size: 1.1rem; margin-top: 10px; display: none; padding-left: 20px; }
     </style>
 </head>
 <body>
 
 <div id="header">
-    <input type="password" id="apiKey" placeholder="在此輸入 API Key" style="width:250px;">
-    <button onclick="save()">儲存設定</button>
+    <div class="setting-item">
+        <select id="service-type" onchange="updateHelpLink()">
+            <option value="gemini">Google Gemini</option>
+            <option value="openai">OpenAI (GPT)</option>
+        </select>
+        <input type="password" id="apiKey" placeholder="在此輸入 Key" style="width:150px;">
+        <a id="get-key-link" class="help-link" target="_blank" href="https://ai.google.dev/gemini-api/docs/api-key?hl=zh-tw">如何取得 API Key？</a>
+    </div>
+    <div class="setting-item">
+        <span>背景</span><input type="color" id="cfg-bg" value="#000000" onchange="updateUI()">
+        <span>系統</span><input type="color" id="cfg-sys" value="#cccccc" onchange="updateUI()">
+        <span>玩家</span><input type="color" id="cfg-ply" value="#ffffff" onchange="updateUI()">
+    </div>
+    <div class="setting-item">
+        <button onclick="saveSettings()">💾 儲存設定</button>
+        <button class="scroll-btn" onclick="exportHistory()">📜 儲存履歷</button>
+        <input type="file" id="fileLoader" style="display:none" accept=".txt" onchange="importHistory(event)">
+    </div>
 </div>
 
-<div id="chat"><div class="msg gm">【系統】正在準備連結 AI 服務...
-請儲存 Key 後輸入「開始遊戲」，系統將自動尋找您帳號可用的模型。</div></div>
+<div id="chat">
+    <div class="msg gm">天道不仁，唯道心可破。此處靈壓凝聚，萬事俱備。
+
+請確認法門金鑰（API Key）已歸位。
+
+心念起時，造化自生。
+
+重塑肉身，請輸入：『轉生重啟』。
+續接斷章，請輸入：『再續前塵』。</div>
+    <div id="loading-indicator"></div>
+</div>
 
 <div id="input-area">
-    <input type="text" id="userInput" placeholder="在此輸入..." onkeypress="if(event.key==='Enter')run()">
-    <button onclick="run()">發送</button>
+    <input type="text" id="userInput" placeholder="在此輸入指令或回應..." style="flex:1" onkeypress="if(event.key==='Enter' && !this.disabled)run()">
+    <button id="send-btn" onclick="run()">發送</button>
 </div>
 
 <script>
-    // 匯入規則
-    const PROMPT = "你是一位專業遊戲主持。
+    const PROMPT = `你是一位專業遊戲主持。
 【語系規範】必須完全使用「繁體中文」進行回覆（台灣慣用語）。
 【主持核心規則】
 1.在文字冒險遊戲中，若玩家沒有要求繼續遊戲，嚴禁在設定階段或局外討論時擅自推動劇情。
@@ -48,71 +79,159 @@
 1.此為遊戲冒險遊戲，需遵守主持文字冒險遊戲時的規則的專屬指令。
 2.遊戲分為三個階段：金丹成形、元嬰現世、化神。
 3.每個階段由三至七個不等的主要情境問題構成。
-4.視玩家回應細節，每個主要情境問題你可以自由的追加數量不等的衍生問題。
+4.視玩家回應細節，每個主要情境問題你可以自由的追加數量不等的衍生情境問題。
 5.這些問題相當於玩家修煉已滿，在進行破境時的道心問答。
 6.第一階段結束時，告知玩家修煉出怎樣的金丹。
 7.第二階段結束時，告知玩家修煉出怎樣的元嬰。
 8.第三階段結束時，告知玩家成為怎樣的神。
 9.如果玩家回應的一致性落差過大，則視為道心不穩，階段結束時機率性破境失敗。
 10.關於「道心不穩」的判定基準，以敘事方式給予玩家警示，但累積到階段結束時才進行破境成功與否的判定。
-11.衍生問題的觸發和回答，也會影響破境評價。
+11.衍生情境問題的觸發和回答，也會影響破境評價。
 12.一旦破境失敗觸發轉世，以情節描述的方式小結玩家道心如何動搖造成破境失敗，接著進度重來，相當於開啟新遊戲。
 13.如果玩家破境成功，小結玩家各階段狀態，並給予一個遙遠未來的凡人如何看待這位神、關於這位神有什麼傳說的後日談。
-14.由於是道心問答的風格，而非主角實際遭遇的劇情故事，沒有特殊要求時，以一個「平均大眾的修仙世界」為背景世界觀即可。";
+14.由於是道心問答的風格，而非主角實際遭遇的劇情故事，沒有特殊要求時，以一個「平均大眾的修仙世界」為背景世界觀即可。`;
+    let history = [];
+    let loadingInterval = null;
 
-    function save() {
-        localStorage.setItem('final_detect_key', document.getElementById('apiKey').value.trim());
-        alert('Key 已儲存！');
+    function exportHistory() {
+        if (history.length === 0) { alert("尚無修煉紀錄。"); return; }
+        let content = history.map(h => `${h.role === 'user' ? '【道友】' : '【天道】'}: ${h.text}`).join('\n\n');
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `修仙履歷_${new Date().getTime()}.txt`;
+        a.click();
     }
 
-    window.onload = () => { document.getElementById('apiKey').value = localStorage.getItem('final_detect_key') || ''; };
+    function importHistory(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const lines = e.target.result.split('\n\n');
+            history = lines.map(line => {
+                if (line.startsWith('【道友】: ')) return { role: 'user', text: line.replace('【道友】: ', '') };
+                if (line.startsWith('【天道】: ')) return { role: 'model', text: line.replace('【天道】: ', '') };
+            }).filter(h => h);
+            appendMsg('gm', "【系統】前塵憶起，因果已重新連接。");
+        };
+        reader.readAsText(file);
+    }
+
+    function startLoading() {
+        const loader = document.getElementById('loading-indicator');
+        const chars = ["│", "／", "─", "＼"];
+        let i = 0; loader.style.display = 'block';
+        loadingInterval = setInterval(() => {
+            loader.innerText = "【天機推演中 " + chars[i] + " 】";
+            i = (i + 1) % chars.length;
+        }, 150);
+        document.getElementById('send-btn').disabled = true;
+    }
+
+    function stopLoading() {
+        clearInterval(loadingInterval);
+        document.getElementById('loading-indicator').style.display = 'none';
+        document.getElementById('send-btn').disabled = false;
+        document.getElementById('userInput').focus();
+    }
+
+    window.onload = () => {
+        document.getElementById('apiKey').value = localStorage.getItem('game_key_univ') || '';
+        updateUI();
+    };
+
+    function updateUI() {
+        const root = document.documentElement;
+        root.style.setProperty('--bg', document.getElementById('cfg-bg').value);
+        root.style.setProperty('--sys', document.getElementById('cfg-sys').value);
+        root.style.setProperty('--ply', document.getElementById('cfg-ply').value);
+    }
+
+    function saveSettings() {
+        localStorage.setItem('game_key_univ', document.getElementById('apiKey').value.trim());
+        alert('設定已儲存。');
+    }
 
     async function run() {
         const out = document.getElementById('chat');
         const input = document.getElementById('userInput');
+        const service = document.getElementById('service-type').value;
         const key = document.getElementById('apiKey').value.trim();
-        const text = input.value.trim();
+        let text = input.value.trim();
 
-        if(!text || !key) return;
-        appendMsg('player', text);
+        if(!text) return;
+
+        // --- 優化：轉生重啟直接觸發新遊戲 ---
+        if (text === "轉生重啟") {
+            history = []; // 斬斷舊因果
+            appendMsg('player', text);
+            text = "開始遊戲"; // 自動轉換指令
+        } else if (text === "再續前塵") {
+            document.getElementById('fileLoader').click();
+            input.value = '';
+            return;
+        } else {
+            appendMsg('player', text);
+        }
+        
+        if(!key) { alert("請先輸入金鑰（API Key）"); return; }
         input.value = '';
+        startLoading();
 
         try {
-            // 第一步：自動獲取可用模型清單
-            const listUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${key}`;
-            const listRes = await fetch(listUrl);
-            const listData = await listRes.json();
-            
-            // 找出支援 generateContent 的第一個模型
-            const availableModel = listData.models.find(m => m.supportedGenerationMethods.includes('generateContent'));
-            
-            if (!availableModel) throw new Error("您的 Key 找不到任何支援對話的模型。");
-
-            // 第二步：使用自動找到的模型發送請求
-            const url = `https://generativelanguage.googleapis.com/v1beta/${availableModel.name}:generateContent?key=${key}`;
-            
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: PROMPT + "\n玩家：" + text }] }] })
-            });
-
-            const data = await res.json();
-            if (data.error) throw new Error(data.error.message);
-            
-            appendMsg('gm', data.candidates[0].content.parts[0].text);
-
+            let reply = (service === 'gemini') ? await callGemini(key, text) : await callOpenAI(key, text);
+            history.push({ role: "user", text: text });
+            history.push({ role: "model", text: reply });
+            appendMsg('gm', reply);
         } catch (e) {
-            appendMsg('err', "【連線失敗】" + e.message + "\n請確認 API Key 是否正確且已啟用。");
+            appendMsg('err', "【天機阻塞】" + e.message);
+        } finally {
+            stopLoading();
         }
         out.scrollTop = out.scrollHeight;
     }
 
+    async function callGemini(key, text) {
+        const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+        const listData = await listRes.json();
+        const model = listData.models.find(m => m.supportedGenerationMethods.includes('generateContent')).name;
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/${model}:generateContent?key=${key}`, {
+            method: 'POST',
+            body: JSON.stringify({
+                contents: [
+                    { role: "user", parts: [{ text: PROMPT }] },
+                    ...history.map(h => ({ role: h.role, parts: [{ text: h.text }] })),
+                    { role: "user", parts: [{ text: text === "開始遊戲" ? "開始" : text }] }
+                ]
+            })
+        });
+        const data = await res.json();
+        return data.candidates[0].content.parts[0].text;
+    }
+
+    async function callOpenAI(key, text) {
+        const res = await fetch(`https://api.openai.com/v1/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+            body: JSON.stringify({
+                model: "gpt-4-turbo",
+                messages: [
+                    { role: "system", content: PROMPT },
+                    ...history.map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.text })),
+                    { role: "user", content: text === "開始遊戲" ? "開始" : text }
+                ]
+            })
+        });
+        const data = await res.json();
+        return data.choices[0].message.content;
+    }
+
     function appendMsg(cls, txt) {
         const d = document.createElement('div');
-        d.className = `msg ${cls}`;
-        d.innerText = txt;
-        document.getElementById('chat').appendChild(d);
+        d.className = `msg ${cls}`; d.innerText = txt;
+        document.getElementById('chat').insertBefore(d, document.getElementById('loading-indicator'));
     }
 </script>
 </body>
