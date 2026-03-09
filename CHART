@@ -1,0 +1,78 @@
+{
+  "zh-TW": {
+    "ui": {
+      "sys_btn": "系統<br>設定",
+      "title": "系統設定",
+      "lang_label": "語系設定",
+      "api_label": "API 連線設定",
+      "get_key": "取得 API Key",
+      "color_label": "顏色：背景 / 系統 / 玩家",
+      "font_label": "字體與字級",
+      "export_full": "📜 紀錄傳說始末\n完整記錄\n再續前塵時消耗AI額度較大",
+      "export_short": "✨ 紀錄因果重點\n重點摘要\n需消耗AI額度\n再續前塵後運算較快",
+      "apply": "設定儲存",
+      "input_placeholder": "在此輸入回應...",
+      "send": "發送",
+      "loading": "天機運轉中...",
+      "scroll_btn": "▼",
+      "prompt_hint": "💡 已生成法相咒語，可複製至 Midjourney / Stable Diffusion 或其他 AI 出圖軟體使用。",
+      "load_cmd": "再續前塵",
+      "save_prompt": "請輸入此卷天書的名稱：",
+      "def_full": "傳說始末",
+      "def_short": "因果重點",
+      "load_success": "【前塵已續】已尋回歷史因果，天機重啟中...",
+      "load_fail": "天書解析失敗，請確認檔案格式正確。",
+      "save_no_data": "尚無因果紀錄可供鐫刻。",
+      "resume_req": "請檢閱以上因果紀錄，並繼續主持後續。",
+      "summary_req": "請根據以上所有對話，去蕪存菁地整理出目前的因果重點。請以條列式呈現，包含：1.當前修為階段 2.關鍵道心轉折 3.重要因果線索。只需回傳條列內容，不要有額外對話。"
+    },
+    "err": {
+      "no_key": "請輸入 API Key",
+      "no_model": "找不到可用模型",
+      "invalid_api_key": "【金鑰失效】API Key 無效或已過期",
+      "rate_limit": "【天機繁忙】請求過於頻繁，請稍候",
+      "quota": "【修為用盡】API 配額或餘額已達上限",
+      "model_not_found": "【天書遺失】找不到指定的 AI 模型",
+      "network": "【因果斷絕】網路連線異常，無法感應天道",
+      "unknown": "【天機紊亂】發生未知錯誤："
+    }
+  },
+  "en": {
+    "ui": {
+      "sys_btn": "Sys<br>Set",
+      "title": "Settings",
+      "lang_label": "Language",
+      "api_label": "API Connection",
+      "get_key": "Get API Key",
+      "color_label": "Colors: BG / Sys / Player",
+      "font_label": "Font & Size",
+      "export_full": "📜 Full Log",
+      "export_short": "✨ Summary",
+      "apply": "Save",
+      "input_placeholder": "Type response...",
+      "send": "Send",
+      "loading": "Processing...",
+      "scroll_btn": "▼",
+      "prompt_hint": "💡 Divine Mantra generated. You may copy it to Midjourney, Stable Diffusion, or other AI generators.",
+      "load_cmd": "Load Progress",
+      "save_prompt": "Enter a name for this scroll:",
+      "def_full": "Full_Legend",
+      "def_short": "Causality_Summary",
+      "load_success": "[Causality Reclaimed] History found, reconnecting to the Will of Heaven...",
+      "load_fail": "Failed to parse the scroll. Please ensure the format is correct.",
+      "save_no_data": "No history to export.",
+      "resume_req": "Review the logs above and continue the game.",
+      "summary_req": "Summarize the causality points of the entire conversation into a concise list including: 1.Current stage 2.Key heart-soul turning points 3.Critical karmic clues. Return only the list."
+    },
+    "err": {
+      "no_key": "Please enter API Key",
+      "no_model": "No available model found",
+      "invalid_api_key": "[Key Dimmed] Invalid or expired API Key",
+      "rate_limit": "[Heavens Busy] Too many requests",
+      "quota": "[Cultivation Depleted] Quota exceeded",
+      "model_not_found": "[Book Lost] Model not found",
+      "network": "[Karma Broken] Network error",
+      "unknown": "[Heavens Chaotic] Unknown error: "
+    }
+  }
+}

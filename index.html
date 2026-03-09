@@ -2,298 +2,343 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>道心化神：修仙破境模擬器</title>
-
-    <meta property="og:title" content="道心化神：極速修仙模擬器">
-    <meta property="og:description" content="天道無常，唯心永恆。這是一場關於道心的淬鍊旅程，準備好面對您的金丹、元嬰與化神考驗了嗎？">
-    <meta property="og:type" content="website">
-
-    <style>
-        :root { --bg: #000; --sys: #ccc; --ply: #fff; --fnt: "標楷體", "DFKai-SB", "BiauKai", serif; }
-        * { font-family: var(--fnt) !important; box-sizing: border-box; }
-        body { background: var(--bg); color: var(--sys); margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        #header { padding: 12px 20px; background: #1a1a1a; border-bottom: 1px solid #444; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
-        .setting-item { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; color: #aaa; position: relative; }
-        #chat { flex: 1; overflow-y: auto; padding: 30px; line-height: 1.8; font-size: 1.3rem; }
-        #input-area { padding: 20px; border-top: 1px solid #444; display: flex; gap: 10px; }
-        input, select, button { background: #222; color: #fff; border: 1px solid #555; padding: 6px 10px; border-radius: 4px; }
-        button { cursor: pointer; background: #444; transition: 0.2s; }
-        button:hover:not(:disabled) { background: #666; }
-        .help-link { color: #4dabff; text-decoration: none; font-size: 0.85rem; }
-        .msg { margin-bottom: 30px; white-space: pre-wrap; }
-        .gm { border-left: 5px solid #555; padding-left: 20px; color: var(--sys); }
-        .player { color: var(--ply); text-align: right; font-weight: bold; }
-        .err { color: #ff9800; border: 1px dashed #ff9800; padding: 15px; background: rgba(255,152,0,0.1); }
-        
-        /* 儲存按鈕色系設定 */
-        .btn-legend { background: #2d2017; color: #8e6d5a; border: 1px solid #4a382c; font-weight: bold; }
-        .btn-cause { background: #3d2b1f; color: #d4a373; border: 1px solid #d4a373; font-weight: bold; }
-        
-        .btn-hint { font-size: 0.7rem; color: #666; display: block; max-width: 150px; line-height: 1.2; margin-top: 2px; }
-
-        #loading-indicator { color: #888; font-size: 1.1rem; margin-top: 10px; display: none; padding-left: 20px; }
-    </style>
+    <title>道心化神：修仙模擬器</title>
 </head>
 <body>
 
-<div id="header">
-    <div class="setting-item">
-        <select id="service-type">
+<div id="spirit-flow"></div>
+
+<input type="file" id="file-loader" style="display:none;" onchange="handleFileSelect(event)">
+
+<div id="main-container">
+    <button id="sys-toggle" onclick="toggleSettings()"></button>
+    <div id="chat">
+        <div id="manifesto-area" class="msg gm"></div>
+        <div id="loading-indicator" style="display:none; padding-left:20px; color:#666;"></div>
+    </div>
+    <div id="input-area">
+        <input type="text" id="userInput" onkeypress="if(event.key==='Enter')run()">
+        <button id="send-btn" onclick="run()"></button>
+    </div>
+    <button id="scroll-btn" onclick="scrollToBottom()">▼</button>
+</div>
+
+<div id="settings-modal" onclick="if(event.target===this)toggleSettings()" style="display:none;">
+    <div class="modal-content">
+        <h2 id="ui-title"></h2>
+        <select id="cfg-lang" onchange="changeLanguage(this.value)" style="width: 100%; margin-bottom: 15px;">
+            <option value="zh-TW">繁體中文</option>
+            <option value="en">English</option>
+        </select>
+        <select id="service-type" style="width: 100%; margin-bottom: 5px;">
             <option value="gemini">Google Gemini</option>
             <option value="openai">OpenAI (GPT)</option>
         </select>
-        <input type="password" id="apiKey" placeholder="在此輸入API Key" style="width:140px;">
-        <a id="get-key-link" class="help-link" target="_blank" href="https://ai.google.dev/gemini-api/docs/api-key?hl=zh-tw">取得API Key</a>
-    </div>
-    <div class="setting-item">
-        <span>背景</span><input type="color" id="cfg-bg" value="#000000" onchange="updateUI()">
-        <span>系統</span><input type="color" id="cfg-sys" value="#cccccc" onchange="updateUI()">
-        <span>玩家</span><input type="color" id="cfg-ply" value="#ffffff" onchange="updateUI()">
-    </div>
-    <div class="setting-item">
-        <button onclick="saveSettings()">💾 儲存設定</button>
-    </div>
-    <div class="setting-item">
-        <div>
-            <button class="btn-legend" onclick="exportHistory(false)">📜 紀錄傳說始末</button>
-            <span class="btn-hint">儲存不消耗額度，但載入後思考時間與消耗較多。</span>
+        <div style="display:flex; gap:5px;">
+            <input type="password" id="apiKey" style="flex:1">
+            <button onclick="pasteKey()" id="ui-paste-btn">📋</button>
         </div>
-    </div>
-    <div class="setting-item">
-        <div>
-            <button class="btn-cause" onclick="exportHistory(true)">✨ 紀錄因果重點</button>
-            <span class="btn-hint">儲存時消耗額度，但載入後遊戲較流暢且消耗少。</span>
+        <div style="text-align: right; margin-bottom: 15px;">
+            <a id="ui-get-key-link" href="#" target="_blank" style="color: #888; font-size: 0.8rem; text-decoration: underline;"></a>
         </div>
-        <input type="file" id="fileLoader" style="display:none" accept=".txt" onchange="importHistory(event)">
+        <div style="font-size: 0.85rem; color: #888; margin-bottom: 5px;" id="ui-color-label"></div>
+        <div class="setting-row" style="margin-bottom: 15px; display: flex; justify-content: space-around;">
+            <input type="color" id="cfg-bg" value="#000000">
+            <input type="color" id="cfg-sys" value="#cccccc">
+            <input type="color" id="cfg-ply" value="#ffffff">
+        </div>
+        <div style="font-size: 0.85rem; color: #888; margin-bottom: 5px;" id="ui-font-label"></div>
+        <select id="cfg-font" style="width: 100%; margin-bottom: 10px;">
+            <option value="'標楷體', serif">古典標楷</option>
+            <option value="'微軟正黑體', sans-serif">現代正黑</option>
+        </select>
+        <input type="range" id="cfg-size" min="0.8" max="2.0" step="0.1" value="1.15" style="width: 100%; margin-bottom: 20px;">
+        <div class="btn-row" style="display:flex; flex-wrap:wrap; gap:10px;">
+            <button onclick="exportHistory(false)" id="ui-export-full"></button>
+            <button onclick="exportHistory(true)" id="ui-export-short"></button>
+        </div>
+        <button onclick="applyVisualSettings(); saveSettings();" id="ui-apply" style="width:100%; margin-top:20px; padding:12px;"></button>
     </div>
-</div>
-
-<div id="chat">
-    <div class="msg gm">天道不仁，唯道心可破。此處靈壓凝聚，萬事俱備。
-
-請確認法門金鑰（API Key）已歸位。
-
-心念起時，造化自生。
-
-重塑肉身，請輸入：『轉生重啟』，會不可逆的清除前塵往事。
-續接斷章，請輸入：『再續前塵』。</div>
-    <div id="loading-indicator"></div>
-</div>
-
-<div id="input-area">
-    <input type="text" id="userInput" placeholder="在此輸入回應..." style="flex:1" onkeypress="if(event.key==='Enter' && !this.disabled)run()">
-    <button id="send-btn" onclick="run()">發送</button>
 </div>
 
 <script>
-    const PROMPT = `你是一位專業遊戲主持。
-【語系規範】必須完全使用「繁體中文」進行回覆（台灣慣用語）。
-【主持核心規則】
-1.在文字冒險遊戲中，若玩家沒有要求繼續遊戲，嚴禁在設定階段或局外討論時擅自推動劇情。
-2.請嚴格遵守資訊對等原則，不要透漏角色不該知道的資訊。遇到模糊地帶時，請先暫停遊戲並以局外討論方式徵詢我的意見，且過程中不得透漏劇情細節。
-3.詢問行動時保持開放式，除非要求否則不提供選項，禁止替玩家決定行動，也禁止事先告知玩家行動的是否為必然或非必然成功。
-4.若行動與角色當下人設嚴重不符，請暫停並與我討論確認。
-5.玩家採取的行動，必然成功則推進；非必然成功則以文字描述風險，徵詢玩家是否堅持。
-6.堅持執行非必然成功時執行幕後 D100 判定，並根據數值差距給予分級的獎勵或懲罰，純敘事呈現。
-7.主持時需預設章節大綱與 NPC 動機，確保劇情有嚴謹的前因後果，而非隨機發散。
-8.新章節前自動複習先前劇情，確保世界觀、故事劇情與 NPC 邏輯連貫。
-【遊戲核心架構】
-1.此為遊戲冒險遊戲，需遵守主持文字冒險遊戲時的規則的專屬指令。
-2.遊戲分為三個階段：金丹成形、元嬰現世、化神。
-3.每個階段由三至七個不等的主要情境問題構成。
-4.視玩家回應細節，每個主要情境問題你可以自由的追加數量不等的衍生情境問題。
-5.這些問題相當於玩家修煉已滿，在進行破境時的道心問答。
-6.第一階段結束時，告知玩家修煉出怎樣的金丹。
-7.第二階段結束時，告知玩家修煉出怎樣的元嬰。
-8.第三階段結束時，告知玩家成為怎樣的神。
-9.如果玩家回應的一致性落差過大，則視為道心不穩，階段結束時機率性破境失敗。
-10.關於「道心不穩」的判定基準，以敘事方式給予玩家警示，但累積到階段結束時才進行破境成功與否的判定。
-11.衍生情境問題的觸發和回答，也會影響破境評價。
-12.一旦破境失敗觸發轉世，以情節描述的方式小結玩家道心如何動搖造成破境失敗，接著進度重來，相當於開啟新遊戲。
-13.如果玩家破境成功，小結玩家各階段狀態，並給予一個遙遠未來的凡人如何看待這位神、關於這位神有什麼傳說的後日談。
-14.由於是道心問答的風格，而非主角實際遭遇的劇情故事，沒有特殊要求時，以一個「平均大眾的修仙世界」為背景世界觀即可。`;
-    
-    let history = []; // 發送給 AI 的記憶
-    let fullLog = []; // 完整紀錄
-    let loadingInterval = null;
+    let CAUSALITY_PROMPT = "", CHART_DICT = {}, FLOW_RULES = {}, MANIFESTO_DATA = {};
+    let history = [], fullLog = []; 
+    // 初始色設為更清透的 Ivory (255, 255, 240)
+    let currentSpirit = { r: 255, g: 255, b: 240 };
 
-    async function exportHistory(isRefined) {
-        if (fullLog.length === 0) { alert("尚無因果可供紀錄。"); return; }
-        const key = document.getElementById('apiKey').value.trim();
-        let finalContent = "";
-        let fileName = "";
-
-        if (isRefined) {
-            if(!key) { alert("洗煉因果需消耗法力，請先輸入 API Key"); return; }
-            startLoading();
-            try {
-                const summaryPrompt = "【系統指令：請總結目前修行紀錄。僅保留：當前境界、道心特質、關鍵選擇。請以條列式呈現，去除廢話，此摘要將用於續玩。】";
-                const service = document.getElementById('service-type').value;
-                const summary = (service === 'gemini') ? await callGemini(key, summaryPrompt) : await callOpenAI(key, summaryPrompt);
-                finalContent = `【修仙傳記 - 因果重點】\n生成時間：${new Date().toLocaleString()}\n\n【天道摘要】:\n${summary}`;
-                fileName = `因果重點_${new Date().getTime()}.txt`;
-            } catch (e) {
-                alert("洗煉失敗： " + e.message); stopLoading(); return;
-            }
-            stopLoading();
-        } else {
-            let header = `【修仙傳記 - 傳說始末】\n匯出時間：${new Date().toLocaleString()}\n--------------------------\n\n`;
-            finalContent = header + fullLog.map(h => `${h.role === 'user' ? '【道友】' : '【天道】'}: ${h.text}`).join('\n\n');
-            fileName = `傳說始末_${new Date().getTime()}.txt`;
-        }
-
-        const blob = new Blob([finalContent], { type: 'text/plain' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = fileName;
-        a.click();
+    async function initGame() {
+        try {
+            const [caus, maniRes, stylRes, chartRes, flowRes] = await Promise.all([
+                fetch('CAUSALITY').then(r => r.text()),
+                fetch('MANIFESTO'),
+                fetch('STYLING'),
+                fetch('CHART'),
+                fetch('FLOW')
+            ]);
+            const styleTag = document.createElement('style');
+            styleTag.innerHTML = await stylRes.text();
+            document.head.appendChild(styleTag);
+            
+            MANIFESTO_DATA = await maniRes.json();
+            CHART_DICT = await chartRes.json();
+            FLOW_RULES = await flowRes.json();
+            CAUSALITY_PROMPT = caus; 
+            
+            const savedLang = localStorage.getItem('game_lang') || 'zh-TW';
+            document.getElementById('cfg-lang').value = savedLang;
+            changeLanguage(savedLang);
+            loadSavedVisuals();
+            resetSpiritFlow(); // 初始載入時回歸鵝黃
+        } catch (e) { console.error("初始化失敗", e); }
     }
 
-    function importHistory(event) {
+    // 安靜重置顏色的法陣
+    function resetSpiritFlow() {
+        currentSpirit = { r: 255, g: 255, b: 240 };
+        updateSpiritUI();
+    }
+
+    function handleFileSelect(event) {
         const file = event.target.files[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = function(e) {
-            const lines = e.target.result.split('\n\n');
-            fullLog = []; history = [];
-            lines.forEach(line => {
-                if (line.startsWith('【道友】: ')) {
-                    const txt = line.replace('【道友】: ', '');
-                    fullLog.push({ role: 'user', text: txt });
-                    if(!["轉生重啟", "再續前塵", "開始遊戲"].includes(txt)) history.push({ role: 'user', text: txt });
-                }
-                if (line.startsWith('【天道】: ') || line.startsWith('【天道摘要】:')) {
-                    const txt = line.replace(/【天道(摘要)?】:\s*/, '');
-                    fullLog.push({ role: 'model', text: txt });
-                    history.push({ role: 'model', text: txt });
+        reader.onload = async (e) => {
+            const lines = e.target.result.split(/\r?\n/);
+            let newH = [], newF = [], curR = null, curT = "";
+            lines.forEach(l => {
+                const line = l.trim();
+                if (line.includes("【玩家】")) {
+                    if (curR) commit(newH, newF, curR, curT);
+                    curR = "user"; curT = "";
+                } else if (line.includes("【天道】")) {
+                    if (curR) commit(newH, newF, curR, curT);
+                    curR = "model"; curT = "";
+                } else if (line && !line.startsWith("===") && !line.startsWith("【修仙")) {
+                    curT += l + "\n";
                 }
             });
-            appendMsg('gm', "【系統】前塵憶起，因果已重新連接。請繼續修行。");
+            if (curR) commit(newH, newF, curR, curT);
+            if (newH.length > 0) {
+                history = newH; fullLog = newF; renderChatHistory();
+                const ui = CHART_DICT[document.getElementById('cfg-lang').value].ui;
+                appendMsg('gm', ui.load_success);
+                await runResumeCall();
+            } else {
+                const ui = CHART_DICT[document.getElementById('cfg-lang').value].ui;
+                alert(ui.load_fail);
+            }
+            event.target.value = '';
         };
         reader.readAsText(file);
     }
 
-    function startLoading() {
-        const loader = document.getElementById('loading-indicator');
-        const chars = ["│", "／", "─", "＼"];
-        let i = 0; loader.style.display = 'block';
-        loadingInterval = setInterval(() => {
-            loader.innerText = "【天機推演中 " + chars[i] + " 】";
-            i = (i + 1) % chars.length;
-        }, 150);
-        document.getElementById('send-btn').disabled = true;
+    function commit(h, f, r, t) {
+        const text = t.trim();
+        if(!text) return;
+        h.push({ role: r, text: text });
+        f.push({ role: (r === "user" ? "玩家" : "天道"), text: text });
     }
 
-    function stopLoading() {
-        clearInterval(loadingInterval);
-        document.getElementById('loading-indicator').style.display = 'none';
-        document.getElementById('send-btn').disabled = false;
-        document.getElementById('userInput').focus();
+    function renderChatHistory() {
+        const chat = document.getElementById('chat');
+        chat.innerHTML = "";
+        chat.appendChild(document.getElementById('manifesto-area'));
+        chat.appendChild(document.getElementById('loading-indicator'));
+        fullLog.forEach(m => appendMsg(m.role === "玩家" ? "player" : "gm", m.text));
+        scrollToBottom();
     }
 
-    window.onload = () => {
-        document.getElementById('apiKey').value = localStorage.getItem('game_key_univ') || '';
-        updateUI();
-    };
+    async function runResumeCall() {
+        const key = document.getElementById('apiKey').value.trim();
+        if (!key) return;
+        document.getElementById('loading-indicator').style.display = 'block';
+        try {
+            const lang = document.getElementById('cfg-lang').value;
+            const ui = CHART_DICT[lang].ui;
+            const service = document.getElementById('service-type').value;
+            const reply = (service === 'gemini') ? await callGemini(key, "(再續前塵)", ui.resume_req) : await callOpenAI(key, "(再續前塵)", ui.resume_req);
+            appendMsg('gm', reply);
+            history.push({role: 'user', text: "(續)"}, {role: 'model', text: reply});
+            fullLog.push({ role: "天道", text: reply });
+        } catch (e) { console.error(e); }
+        finally { document.getElementById('loading-indicator').style.display = 'none'; scrollToBottom(); }
+    }
 
-    function updateUI() {
+    async function run() {
+        const input = document.getElementById('userInput');
+        const text = input.value.trim();
+        const lang = document.getElementById('cfg-lang').value;
+        const d = CHART_DICT[lang];
+
+        // 轉生重啟：安靜地洗掉一切
+        if (text === "轉生重啟" || text === "Reincarnation") {
+            history = []; fullLog = [];
+            resetSpiritFlow(); // 背景回歸鵝黃
+            renderChatHistory();
+            input.value = '';
+            return;
+        }
+
+        if (text === d.ui.load_cmd || text === "再續前塵" || text === "Load Progress") {
+            document.getElementById('file-loader').click();
+            input.value = '';
+            return;
+        }
+
+        const key = document.getElementById('apiKey').value.trim();
+        if (!text || !key) return;
+
+        appendMsg('player', text);
+        fullLog.push({ role: "玩家", text: text });
+        input.value = '';
+        document.getElementById('loading-indicator').style.display='block';
+        
+        try {
+            const langReq = (lang === 'zh-TW') ? "Please respond in Traditional Chinese." : "Please respond in English.";
+            const service = document.getElementById('service-type').value;
+            const reply = (service === 'gemini') ? await callGemini(key, text, langReq) : await callOpenAI(key, text, langReq);
+            appendMsg('gm', reply);
+            detectSpiritFlow(reply);
+            history.push({role: 'user', text: text}, {role: 'model', text: reply});
+            fullLog.push({ role: "天道", text: reply });
+        } catch (e) { appendMsg('gm', (d.err.unknown || "Error: ") + e.message); }
+        finally { document.getElementById('loading-indicator').style.display='none'; scrollToBottom(); }
+    }
+
+    function appendMsg(cls, txt) { 
+        const chat = document.getElementById('chat');
+        const d = document.createElement('div'); d.className = `msg ${cls}`; 
+        if (txt.includes('```')) {
+            const parts = txt.split('```');
+            parts.forEach((part, index) => {
+                if (index % 2 === 1) { 
+                    const container = document.createElement('div'); container.className = 'code-container';
+                    const pre = document.createElement('pre'); pre.innerText = part.trim();
+                    const btn = document.createElement('button'); btn.className = 'copy-btn'; btn.innerText = '📋 COPY';
+                    btn.onclick = () => { navigator.clipboard.writeText(part.trim()).then(() => { btn.innerText = '✅ COPIED'; setTimeout(() => btn.innerText = '📋 COPY', 2000); }); };
+                    container.appendChild(pre); container.appendChild(btn); d.appendChild(container);
+                } else { const span = document.createElement('span'); span.innerText = part; d.appendChild(span); }
+            });
+        } else { const span = document.createElement('span'); span.innerText = txt; d.appendChild(span); }
+        chat.insertBefore(d, document.getElementById('loading-indicator'));
+    }
+
+    async function callGemini(k, t, l) {
+        const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${k}`).then(r => r.json());
+        const modelObj = listRes.models.find(m => m.supportedGenerationMethods.includes('generateContent'));
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/${modelObj.name}:generateContent?key=${k}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: l + "\n" + CAUSALITY_PROMPT }] }, ...history.map(h => ({ role: h.role, parts: [{ text: h.text }] })), { role: "user", parts: [{ text: t }] }] })
+        });
+        const data = await res.json();
+        return data.candidates[0].content.parts[0].text;
+    }
+
+    async function callOpenAI(key, text, langReq) {
+        const res = await fetch(`https://api.openai.com/v1/chat/completions`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+            body: JSON.stringify({ model: "gpt-4-turbo", messages: [{ role: "system", content: langReq + "\n" + CAUSALITY_PROMPT }, ...history.map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.text })), { role: "user", content: text }] })
+        });
+        const data = await res.json(); return data.choices[0].message.content;
+    }
+
+    async function exportHistory(shortMode) {
+        const lang = document.getElementById('cfg-lang').value;
+        const ui = CHART_DICT[lang].ui;
+        if (fullLog.length === 0) { alert(ui.save_no_data); return; }
+        let finalContent = "";
+        let defaultName = shortMode ? ui.def_short : ui.def_full;
+        if (shortMode) {
+            document.getElementById('loading-indicator').style.display = 'block';
+            try {
+                const key = document.getElementById('apiKey').value.trim();
+                const service = document.getElementById('service-type').value;
+                finalContent = (service === 'gemini') ? await callGemini(key, ui.summary_req, "System") : await callOpenAI(key, ui.summary_req, "System");
+            } catch (e) { alert("Error: " + e.message); document.getElementById('loading-indicator').style.display = 'none'; return; }
+            document.getElementById('loading-indicator').style.display = 'none';
+        } else {
+            fullLog.forEach(item => { finalContent += `【${item.role}】\n${item.text}\n\n`; });
+        }
+        const userInputName = prompt(ui.save_prompt, defaultName);
+        if (userInputName === null) return;
+        const fileName = userInputName.trim() || defaultName;
+        const blob = new Blob([finalContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = `${fileName}.txt`; a.click();
+    }
+
+    function changeLanguage(l) {
+        const d = CHART_DICT[l]; if(!d) return;
+        document.getElementById('sys-toggle').innerHTML = d.ui.sys_btn;
+        document.getElementById('ui-title').innerText = d.ui.title;
+        document.getElementById('ui-export-full').innerText = d.ui.export_full;
+        document.getElementById('ui-export-short').innerText = d.ui.export_short;
+        document.getElementById('ui-apply').innerText = d.ui.apply;
+        document.getElementById('send-btn').innerText = d.ui.send;
+        document.getElementById('userInput').placeholder = d.ui.input_placeholder;
+        if(history.length === 0 && MANIFESTO_DATA[l]) document.getElementById('manifesto-area').innerText = MANIFESTO_DATA[l];
+        localStorage.setItem('game_lang', l);
+    }
+    
+    function detectSpiritFlow(text) {
+        const bg = document.getElementById('spirit-flow');
+        if (!bg || !FLOW_RULES) return;
+
+        const shift = 25; // 提高靈敏度
+        let changed = false;
+
+        // 火、怒屬性：偏向赤紅
+        if (FLOW_RULES.plus_r?.some(k => text.includes(k))) {
+            currentSpirit.r += shift;
+            currentSpirit.g -= (shift / 4);
+            currentSpirit.b -= (shift / 4);
+            changed = true;
+        }
+        // 冰、寒屬性：減少紅，增加藍
+        if (FLOW_RULES.minus_r?.some(k => text.includes(k))) {
+            currentSpirit.r -= shift;
+            currentSpirit.b += (shift / 2);
+            changed = true;
+        }
+
+        if (changed) {
+            // 邊界保護：下限設為 160，確保背景永遠明亮不灰濁
+            const limit = 160;
+            currentSpirit.r = Math.max(limit, Math.min(255, currentSpirit.r));
+            currentSpirit.g = Math.max(limit, Math.min(255, currentSpirit.g));
+            currentSpirit.b = Math.max(limit, Math.min(255, currentSpirit.b));
+            updateSpiritUI();
+        }
+    }
+
+    function updateSpiritUI() {
+        const bg = document.getElementById('spirit-flow');
+        if (bg) {
+            bg.style.backgroundColor = `rgb(${currentSpirit.r}, ${currentSpirit.g}, ${currentSpirit.b})`;
+        }
+    }
+
+    function toggleSettings() { const m = document.getElementById('settings-modal'); m.style.display = (m.style.display === 'flex') ? 'none' : 'flex'; }
+    function saveSettings() { localStorage.setItem('game_key_univ', document.getElementById('apiKey').value.trim()); toggleSettings(); }
+    function applyVisualSettings() { 
         const root = document.documentElement;
         root.style.setProperty('--bg', document.getElementById('cfg-bg').value);
         root.style.setProperty('--sys', document.getElementById('cfg-sys').value);
         root.style.setProperty('--ply', document.getElementById('cfg-ply').value);
     }
-
-    function saveSettings() {
-        localStorage.setItem('game_key_univ', document.getElementById('apiKey').value.trim());
-        alert('設定已儲存。');
-    }
-
-    async function run() {
-        const out = document.getElementById('chat');
-        const input = document.getElementById('userInput');
-        const service = document.getElementById('service-type').value;
-        const key = document.getElementById('apiKey').value.trim();
-        let text = input.value.trim();
-
-        if(!text) return;
-        fullLog.push({ role: "user", text: text });
-
-        if (text === "轉生重啟") {
-            history = []; fullLog = []; // 徹底清空
-            appendMsg('player', text);
-            appendMsg('gm', "【系統】舊日因果已徹底斬斷。");
-            text = "開始遊戲"; 
-        } else if (text === "再續前塵") {
-            document.getElementById('fileLoader').click();
-            input.value = ''; return;
-        } else {
-            appendMsg('player', text);
+    function loadSavedVisuals() {
+        const saved = JSON.parse(localStorage.getItem('game_visuals'));
+        if (saved) {
+            document.getElementById('cfg-bg').value = saved.bg;
+            document.getElementById('cfg-sys').value = saved.sys;
+            document.getElementById('cfg-ply').value = saved.ply;
+            applyVisualSettings();
         }
-        
-        if(!key) { alert("請輸入 API Key"); return; }
-        input.value = ''; startLoading();
-
-        try {
-            // 去水精簡
-            let refinedText = text.replace(/^(我想想|好的|沒問題|我知道了|了解)[，。]*/, "").trim();
-            let reply = (service === 'gemini') ? await callGemini(key, refinedText) : await callOpenAI(key, refinedText);
-
-            if (reply) {
-                if(!["轉生重啟", "開始遊戲"].includes(text)) history.push({ role: "user", text: refinedText });
-                else history.push({ role: "user", text: "開始" });
-                
-                history.push({ role: "model", text: reply });
-                fullLog.push({ role: "model", text: reply });
-                appendMsg('gm', reply);
-            }
-        } catch (e) {
-            appendMsg('err', "【天機阻塞】" + e.message);
-        } finally {
-            stopLoading();
-        }
-        out.scrollTop = out.scrollHeight;
     }
-
-    async function callGemini(key, text) {
-        const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
-        const listData = await listRes.json();
-        const modelObj = listData.models.find(m => m.supportedGenerationMethods.includes('generateContent'));
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/${modelObj.name}:generateContent?key=${key}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [
-                    { role: "user", parts: [{ text: PROMPT }] },
-                    ...history.map(h => ({ role: h.role, parts: [{ text: h.text }] })),
-                    { role: "user", parts: [{ text: text }] }
-                ]
-            })
-        });
-        const data = await res.json();
-        if (!data.candidates || !data.candidates[0]) throw new Error("天機全無，請重整後再試");
-        return data.candidates[0].content.parts[0].text;
-    }
-
-    async function callOpenAI(key, text) {
-        const res = await fetch(`https://api.openai.com/v1/chat/completions`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-            body: JSON.stringify({
-                model: "gpt-4-turbo",
-                messages: [{ role: "system", content: PROMPT }, ...history.map(h => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.text })), { role: "user", content: text }]
-            })
-        });
-        const data = await res.json();
-        return data.choices[0].message.content;
-    }
-
-    function appendMsg(cls, txt) {
-        const d = document.createElement('div');
-        d.className = `msg ${cls}`; d.innerText = txt;
-        document.getElementById('chat').insertBefore(d, document.getElementById('loading-indicator'));
-    }
+    function scrollToBottom() { const c = document.getElementById('chat'); c.scrollTop = c.scrollHeight; }
+    function pasteKey() { navigator.clipboard.readText().then(t => document.getElementById('apiKey').value = t); }
+    window.onload = () => { document.getElementById('apiKey').value = localStorage.getItem('game_key_univ') || ''; initGame(); };
 </script>
 </body>
 </html>
-
-
